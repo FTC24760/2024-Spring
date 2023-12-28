@@ -1,36 +1,8 @@
-/* Copyright (c) 2017 FIRST. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without modification,
- * are permitted (subject to the limitations in the disclaimer below) provided that
- * the following conditions are met:
- *
- * Redistributions of source code must retain the above copyright notice, this list
- * of conditions and the following disclaimer.
- *
- * Redistributions in binary form must reproduce the above copyright notice, this
- * list of conditions and the following disclaimer in the documentation and/or
- * other materials provided with the distribution.
- *
- * Neither the name of FIRST nor the names of its contributors may be used to endorse or
- * promote products derived from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE GRANTED BY THIS
- * LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
- * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
- * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
-
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
@@ -50,6 +22,8 @@ public class FTCCode extends OpMode
     private DcMotor armRight = null;
     private Servo gripper = null;
     private Servo wrist = null;
+    private Servo servo1 = null;
+    private Servo servo2 = null;
 
     private boolean manualMode = false;
     private double armSetpoint = 0.0;
@@ -62,11 +36,20 @@ public class FTCCode extends OpMode
     private final double wristUpPosition = 1.0;
     private final double wristDownPosition = 0.0;
 
-    private final int armHomePosition = 0;
+    private final int armHomePosition = -60;
     private final int armIntakePosition = 10;
-    private final int armScorePosition = 600;
+    private final int armScorePosition = 60;
     private final int armShutdownThreshold = 5;
+    private final double targetIntakePosition = 1.0;
     private double curWrist = 0.0;
+
+    private boolean speedToggle = false;
+    private boolean spinToggle = false;
+    private boolean reverseSpinToggle = false;
+
+    long spinPress = 0;
+    long speedPress = 0;
+    long reversePress = 0;
 
     /*
      * Code to run ONCE when the driver hits INIT
@@ -81,6 +64,8 @@ public class FTCCode extends OpMode
         armRight = hardwareMap.get(DcMotor.class, "armRight");
         gripper = hardwareMap.get(Servo.class, "gripper");
         wrist = hardwareMap.get(Servo.class, "wrist");
+        servo1 = hardwareMap.get(Servo.class, "servo1");
+        servo2 = hardwareMap.get(Servo.class, "servo2");
 
         leftDrive.setDirection(DcMotor.Direction.FORWARD);
         rightDrive.setDirection(DcMotor.Direction.REVERSE);
@@ -137,17 +122,56 @@ public class FTCCode extends OpMode
         //DRIVE
         double drive = gamepad1.left_stick_y;
         double turn  =  gamepad1.right_stick_x;
-        leftPower    = Range.clip(drive + turn, -1.0, 1.0) ;
-        rightPower   = Range.clip(drive - turn, -1.0, 1.0) ;
+        double leftIdeal = drive + turn;
+        double rightIdeal = drive - turn;
+        if (speedToggle) {
+            leftIdeal = (drive + turn) * 0.5;
+            rightIdeal = (drive - turn) * 0.5;
+        }
+        leftPower    = Range.clip(leftIdeal, -1.0, 1.0) ;
+        rightPower   = Range.clip(rightIdeal, -1.0, 1.0) ;
 
         leftDrive.setPower(leftPower);
         rightDrive.setPower(rightPower);
 
+
+        if (spinToggle) {
+            if (reverseSpinToggle) {
+                servo1.setPosition(targetIntakePosition);
+                servo2.setPosition(-targetIntakePosition);
+            } else {
+                servo1.setPosition(-targetIntakePosition);
+                servo2.setPosition(targetIntakePosition);
+            }
+        }
+        else if (!spinToggle) {
+            servo1.setPosition(0.5);
+            servo2.setPosition(0.5);
+        }
         //ARM & WRIST
         manualArmPower = gamepad1.right_trigger - gamepad1.left_trigger;
         if (Math.abs(manualArmPower) > armManualDeadband) {
+            if (!manualMode) {
+                armLeft.setPower(0.0);
+                armRight.setPower(0.0);
+                armLeft.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+                armRight.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+                manualMode = true;
+            }
             armLeft.setPower(manualArmPower);
             armRight.setPower(manualArmPower);
+        }
+        else {
+            if (manualMode) {
+                armLeft.setTargetPosition(armLeft.getCurrentPosition());
+                armRight.setTargetPosition(armRight.getCurrentPosition());
+                armLeft.setPower(1.0);
+                armRight.setPower(1.0);
+                armLeft.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                armRight.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                manualMode = false;
+            }
+
         }
 
 
@@ -173,14 +197,6 @@ public class FTCCode extends OpMode
             armRight.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         }
 
-        //GRIPPER
-        if (gamepad1.left_bumper) {
-            gripper.setPosition(gripperOpenPosition);
-        }
-        else if (gamepad1.right_bumper) {
-            gripper.setPosition(gripperClosedPosition);
-        }
-
         if (gamepad2.right_trigger > 0.1) {
             // wrist range 0.5 (back inactive) to  0.4? (intake and scoring)
             if (curWrist <= 0.99) {
@@ -192,6 +208,36 @@ public class FTCCode extends OpMode
                 curWrist -= 0.01;
                 wrist.setPosition(curWrist);
             }
+        }
+
+        if (gamepad1.right_bumper && System.currentTimeMillis() - speedPress > 500) {
+            spinPress = System.currentTimeMillis();
+            speedToggle = !speedToggle;
+        }
+
+        if (gamepad1.x) {
+            armLeft.setTargetPosition(armScorePosition);
+            armRight.setTargetPosition(armScorePosition);
+            armLeft.setPower(0.5);
+            armRight.setPower(0.5);
+            armLeft.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+            armRight.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        }
+        else if (gamepad1.b) {
+            armLeft.setTargetPosition(armHomePosition);
+            armRight.setTargetPosition(armHomePosition);
+            armLeft.setPower(1.0);
+            armRight.setPower(1.0);
+            armLeft.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+            armRight.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        }
+        else if (gamepad1.a && System.currentTimeMillis() - spinPress > 500) {
+            spinPress = System.currentTimeMillis();
+            spinToggle = !spinToggle;
+        }
+        else if (gamepad1.y && System.currentTimeMillis() - reversePress > 500) {
+            reversePress = System.currentTimeMillis();
+            reverseSpinToggle = !reverseSpinToggle;
         }
 
         telemetry.addData("Status", "Run Time: " + runtime.toString());
@@ -208,7 +254,12 @@ public class FTCCode extends OpMode
                         ((Integer)armLeft.getTargetPosition()).toString() +
                         ", right = " +
                         ((Integer)armRight.getTargetPosition()).toString());
-        telemetry.addData("Wrist: ", curWrist);
+        telemetry.addData("Speed Limiter: ", speedToggle);
+        telemetry.addData("Spin Enabled: ", spinToggle);
+        telemetry.addData("Reverse Spin: ", reverseSpinToggle);
+
+        telemetry.update();
+
     }
 
     /*
