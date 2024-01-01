@@ -45,9 +45,7 @@ public class MoveNBack extends OpMode{     //declaring a java class
         // Set powers based on gamepad input
         setPowers(leftPower, rightPower);
 
-        // Check if a specific button is pressed (assuming 'a' button in this case)
         if (gamepad1.y) {
-            // Perform the distance movement when the 'y' button is pressed
             distance(distanceCentimeters, power);
         }
     }
