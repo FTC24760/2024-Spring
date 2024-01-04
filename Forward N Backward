@@ -13,7 +13,7 @@ public class MoveNBack extends OpMode{     //declaring a java class
     private DcMotor rightDrive;          //represents the right motor of the two-motor drive system
     private ElapsedTime runtime = new ElapsedTime();  
     
-    private static final int distanceCentimeters = 100.0;     
+    private static final int distanceCentimeters = 100;     
     private static final double power = 0.5; 
     //Sets the desired distance
     
