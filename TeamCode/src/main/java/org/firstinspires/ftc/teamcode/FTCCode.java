@@ -38,7 +38,7 @@ public class FTCCode extends OpMode
 
     private final int armHomePosition = -60;
     private final int armIntakePosition = 10;
-    private final int armScorePosition = 60;
+    private final int armScorePosition = 65;
     private final int armShutdownThreshold = 5;
     private final double targetIntakePosition = 1.0;
     private double curWrist = 0.0;
@@ -218,8 +218,8 @@ public class FTCCode extends OpMode
         if (gamepad1.x) {
             armLeft.setTargetPosition(armScorePosition);
             armRight.setTargetPosition(armScorePosition);
-            armLeft.setPower(0.5);
-            armRight.setPower(0.5);
+            armLeft.setPower(0.7);
+            armRight.setPower(0.7);
             armLeft.setMode(DcMotor.RunMode.RUN_TO_POSITION);
             armRight.setMode(DcMotor.RunMode.RUN_TO_POSITION);
         }
